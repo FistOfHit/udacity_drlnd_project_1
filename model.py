@@ -1,12 +1,10 @@
 # Imports
-import numpy as np
-import torch
 import torch.nn as nn
 
 
-class Banana_q(nn.Module):
+class Q_network(nn.Module):
     """
-    Banana Q model class.
+    Q-Network model class.
     
     Attributes
     ----------
@@ -20,7 +18,7 @@ class Banana_q(nn.Module):
 
     def __init__(self, state_size, action_space_size):
         """
-        Initialise Banana Q model class.
+        Initialise Q-Network model class.
 
         Parameters
         ----------
@@ -35,7 +33,7 @@ class Banana_q(nn.Module):
         None.
         """
 
-        super(Banana_q, self).__init__()
+        super(Q_network, self).__init__()
 
         # Linear layers
         self.linear_1 = nn.Linear(state_size, state_size)
@@ -62,13 +60,13 @@ class Banana_q(nn.Module):
         
         Returns
         -------
-        action_probability: torch Tensor
+        action_probs: torch Tensor
             Softmaxed probabilities for action to take
         """
 
-        actions = self.activation(self.linear_1(state_batch))
-        actions = self.activation(self.linear_2(actions))
-        actions = self.activation(self.linear_3(actions))
-        actions = self.output_modifier(self.linear_4(actions))
+        action_probs = self.activation(self.linear_1(state_batch))
+        action_probs = self.activation(self.linear_2(action_probs))
+        action_probs = self.activation(self.linear_3(action_probs))
+        action_probs = self.output_modifier(self.linear_4(action_probs))
 
-        return action_probability   
+        return action_probs    
