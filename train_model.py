@@ -5,7 +5,7 @@ import torch
 
 
 def deep_q_learning(agent, env, brain_name,
-                    q_hyperparameters=[2000, 1000, 1, 0.01, 0.995]):
+                    q_hyperparameters=[2000, 1000, 1, 0.01, 0.99]):
     """
     Perform Deep Q-Learning with a given agent and hyperparameters.
     
@@ -89,13 +89,14 @@ def deep_q_learning(agent, env, brain_name,
         running_average = np.mean(scores[-100:])
         
         # Print update
-        print('Episode: %d, Average Score: %.2f' %\
-              (episode, running_average))
+        if episode % 10 == 0:
+            print('Episode: %d, Average Score: %.2f' %\
+                  (episode, running_average))
         
         # If agent has reached a high enough score on average, save policy
-        if running_average >= 200:
+        if running_average >= 13:
             print('\nEnvironment solved in %d episodes! \n' +
-                  'Average Score: %.2f' % (episode-50, running_average))
+                  'Average Score: %.2f' % (episode-5, running_average))
             torch.save(agent.q_current.state_dict(), 'checkpoint.pth')
             break
         

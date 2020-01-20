@@ -23,7 +23,7 @@ class Replay_buffer:
         Tuple object to store sample of experiences
     """
 
-    def __init__(self, action_space_size, buffer_size, batch_size, prioritised):
+    def __init__(self, action_space_size, buffer_size, batch_size):
         """
         Initialize a Replay_buffer object.
 
@@ -37,9 +37,6 @@ class Replay_buffer:
             
         batch_size: Integer
             Size of each training batch
-            
-        prioritised: Bool
-            Whether or not to prioritise experience replay
             
         Returns
         -------
@@ -55,12 +52,12 @@ class Replay_buffer:
         self.experience = cs.namedtuple("Experience",
                                         field_names=["state", "action",
                                                      "reward", "next_state",
-                                                     "done"])
+                                                     "done", "priority"])
         
         return
     
     
-    def add(self, state, action, reward, next_state, done):
+    def add(self, state, action, reward, next_state, done, priority):
         """
         Add a new experience tuple to memory.
         
@@ -79,7 +76,10 @@ class Replay_buffer:
             Next state achieved by taking action in state
             
         done: Bool
-            TO FILL
+            Whether or not this state is when the episode is done
+            
+        priority: Float
+            Priority value given to experience
             
         Returns
         -------
@@ -87,48 +87,13 @@ class Replay_buffer:
         """
         
         # Append new experience
-        new_experience = self.experience(state, action, reward, next_state, done)
+        new_experience = self.experience(state, action, reward, next_state, done, priority)
         self.memory.append(new_experience)
         
         return
     
     
-    def randomly_sample(self):
-        """
-        Randomly sample a batch of experiences from memory.
-        
-        Parameters
-        ----------
-        None.
-        
-        Returns
-        -------
-        sampled_experiences: Tuple (shape: 5 X batch_size)
-            (s, a, r, s') tuples for experience replay
-        """
-        
-        # Randomly select batch_size experiences from memory
-        experiences = random.sample(self.memory, k=self.batch_size)
-
-        # Unpack
-        states = torch.from_numpy(np.vstack([exp.state for exp in experiences \
-                                             if exp is not None])).float().to(device)
-        actions = torch.from_numpy(np.vstack([exp.action for exp in experiences if \
-                                              exp is not None])).long().to(device)
-        rewards = torch.from_numpy(np.vstack([exp.reward for exp in experiences \
-                                              if exp is not None])).float().to(device)
-        next_states = torch.from_numpy(np.vstack([exp.next_state for exp in experiences if \
-                                                  exp is not None])).float().to(device)
-        dones = torch.from_numpy(np.vstack([exp.done for exp in experiences \
-                                            if exp is not None]).astype(np.uint8)).float().to(device)
-        
-        # Pack into another tuple (transpose effectivley)
-        sampled_experiences = (states, actions, rewards, next_states, dones)
-  
-        return sampled_experiences
-    
-    
-    def prioritised_sample(self):
+    def sample(self):
         """
         Prioritised sample a batch of experiences from memory.
         
@@ -142,8 +107,17 @@ class Replay_buffer:
             (s, a, r, s') tuples for experience replay
         """
         
-        # Randomly select batch_size experiences from memory
-        experiences = random.sample(self.memory, k=self.batch_size)
+        # Get the priorities
+        priorities = torch.Tensor([exp.priority for exp in self.memory if exp is not None])
+        probability = (priorities**0.5 / torch.sum(priorities**0.5)).numpy()
+        
+        # Randomly sample some indexes with given sampling probabilities
+        indexes = np.random.choice(np.arange(len(self.memory)), size=self.batch_size, p=probability)
+        indexes = np.array(indexes, dtype=np.int)
+        
+        experiences = []
+        for index in indexes:
+            experiences.append(self.memory[index])
 
         # Unpack
         states = torch.from_numpy(np.vstack([exp.state for exp in experiences \
@@ -156,9 +130,11 @@ class Replay_buffer:
                                                   exp is not None])).float().to(device)
         dones = torch.from_numpy(np.vstack([exp.done for exp in experiences \
                                             if exp is not None]).astype(np.uint8)).float().to(device)
+        priorities = torch.from_numpy(np.vstack([exp.priority for exp in experiences \
+                                            if exp is not None])).float().to(device)
         
         # Pack into another tuple (transpose effectivley)
-        sampled_experiences = (states, actions, rewards, next_states, dones)
+        sampled_experiences = (states, actions, rewards, next_states, dones, priorities)
   
         return sampled_experiences
 

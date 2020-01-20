@@ -8,7 +8,7 @@ class Q_network(nn.Module):
     
     Attributes
     ----------
-    linear_1...4: torch NN linear layer
+    linear_1, 2 ,3: torch NN linear layer
     
     activation: torch NN activation function
     
@@ -36,16 +36,12 @@ class Q_network(nn.Module):
         super(Q_network, self).__init__()
 
         # Linear layers
-        self.linear_1 = nn.Linear(state_size, state_size)
-        self.linear_2 = nn.Linear(state_size, state_size)
-        self.linear_3 = nn.Linear(state_size, state_size)
-        self.linear_4 = nn.Linear(state_size, action_space_size)
+        self.linear_1 = nn.Linear(state_size, 3*state_size)
+        self.linear_2 = nn.Linear(3*state_size, 2*state_size)
+        self.linear_3 = nn.Linear(2*state_size, action_space_size)
 
         # Non-linearity
-        self.activation = nn.LeakyReLU()
-        
-        # Output modifier
-        self.output_modifier = nn.Softmax(dim=1)
+        self.activation = nn.ReLU()
 
 
     # Full forward pass
@@ -66,7 +62,6 @@ class Q_network(nn.Module):
 
         action_probs = self.activation(self.linear_1(state_batch))
         action_probs = self.activation(self.linear_2(action_probs))
-        action_probs = self.activation(self.linear_3(action_probs))
-        action_probs = self.output_modifier(self.linear_4(action_probs))
+        action_probs = self.linear_3(action_probs)
 
         return action_probs    

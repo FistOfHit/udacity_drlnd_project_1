@@ -36,8 +36,8 @@ class Agent():
     """
 
     def __init__(self, state_size, action_space_size,
-                 nn_hyperparams=[5e-4, 64, 4],
-                 rl_hyperparams=[int(1e5), 0.99, 1e-3, True]):
+                 nn_hyperparams=[7e-4, 64, 4],
+                 rl_hyperparams=[int(1e5), 0.99, 1e-3]):
         """
         Initialize an Agent.
         
@@ -53,7 +53,7 @@ class Agent():
             List of all hyper-parameters for neural network. Consists of, in
             this order:
                 
-            learn_rate: Float (default: 5e-4)
+            learn_rate: Float (default: 7e-4)
                 (Initial) Learning rate for network optimiser
                 
             batch_size: Integer (default: 64)
@@ -74,9 +74,6 @@ class Agent():
                 
             tau: Float (default: 1e-3)
                 Proportion to use when updating target network
-                
-            prioritised: Bool (default: True)
-                Whether or not to use prioritised experience replay
         
         Returns
         -------
@@ -85,7 +82,7 @@ class Agent():
         
         # Unpack parameters
         self.learn_rate, self.batch_size, self.update_freq = nn_hyperparams
-        self.buffer_size, self.gamma, self.tau, self.prioritised = rl_hyperparams
+        self.buffer_size, self.gamma, self.tau = rl_hyperparams
         
         # Initialise enviroment parameters
         self.state_size = state_size
@@ -95,13 +92,14 @@ class Agent():
         self.q_current = model.Q_network(state_size, action_space_size).to(device)
         self.q_target = model.Q_network(state_size, action_space_size).to(device)
         
-        # Initialise optimiser with defined learning rate
+        # Initialise optimiser with defined learning rate and loss
         self.optimiser = optim.Adam(self.q_current.parameters(), 
                                     lr=self.learn_rate)
+        self.loss_func = nn.MSELoss()
 
         # Initialise experience replay buffer
         self.memory = exp_rep.Replay_buffer(action_space_size, self.buffer_size,
-                                            self.batch_size, self.prioritised)
+                                            self.batch_size)
         
         # Initialize time step coutner (for updating every update_freq steps)
         self.num_time_steps = 0
@@ -135,23 +133,34 @@ class Agent():
         None.
         """
         
+        # Set both Q-Networks to evaluation mode
+        self.q_current.eval()
+        self.q_target.eval()
+        
+        # Calculate priority for this experience
+        tensor_state = torch.Tensor(state).to(device)
+        
+        target_q = self.q_target.forward(tensor_state)[action].to("cpu")
+        current_q = self.q_current.forward(tensor_state)[action].to("cpu")
+        
+        priority = reward + self.gamma*target_q - current_q
+        priority = torch.abs(priority) + (1/self.buffer_size)
+        priority = priority.detach()
+        
         # Save experience in replay memory
-        self.memory.add(state, action, reward, next_state, done)
+        self.memory.add(state, action, reward, next_state, done, priority)
         
         # Learn once every update_frequency time steps.
         self.num_time_steps = (self.num_time_steps + 1) % self.update_freq
         
-        # If we've had update_freq timesteps since last update, then update
-        if self.num_time_steps == 0:
-            
-            # Only if we have enough memory
-            if len(self.memory) > self.batch_size:
+        # If we've had update_freq timesteps since last update and enough experiences
+        if self.num_time_steps == 0 and len(self.memory) > self.batch_size:
                 
-                # Draw sample from memory
-                experiences = self.memory.randomly_sample()
-                
-                # Learn with these sampled experiences from memory
-                self.learn(experiences, self.gamma)
+            # Draw sample from memory
+            experiences = self.memory.sample()
+
+            # Learn with these sampled experiences from memory
+            self.learn(experiences, self.gamma)
         
         return
 
@@ -188,7 +197,7 @@ class Agent():
         if random.random() > epsilon:
             chosen_action = np.argmax(action_probs.cpu().data.numpy())
         else:
-            chosen_action = random.choice(np.arange(self.action_size))
+            chosen_action = random.choice(np.arange(self.action_space_size))
             
         return chosen_action
         
@@ -210,30 +219,44 @@ class Agent():
         """
         
         # Unpack components from tuple
-        states, actions, rewards, next_states, dones = experiences
+        states, actions, rewards, next_states, dones, priorities = experiences
+        
+        # Set Q-Network to evaluation mode
+        self.q_current.eval()
+        self.q_target.eval()
+        
+        #--------------PRIORITISED ER----------#
+        scale = ((1/self.buffer_size)*(1/priorities))**0.4
+        #--------------------------------------#
+        
+        #------------- DOUBLE DQN -------------#
+        # Get max predicted Q values (for next states) from local model
+        next_q_targets = self.q_current(next_states).detach().max(1)[0].unsqueeze(1)
+        
+        # Evaluate target Q with current policy
+        with torch.no_grad():
+            currently_evaluated_targets = self.q_target(next_states).gather(1, next_q_targets.to(dtype=torch.long))
+        
+        # Compute Q targets for current states 
+        current_q_targets = scale*(rewards + (gamma * currently_evaluated_targets * (1 - dones)))
+        #--------------------------------------#
         
         # Set Q-Network to train mode
         self.q_current.train()
 
-        # Get max predicted Q values (for next states) from target model
-        next_q_targets = self.q_target(next_states).detach().max(1)[0].unsqueeze(1)
-        
-        # Compute Q targets for current states 
-        current_q_targets = rewards + (gamma * next_q_targets * (1 - dones))
-
         # Get expected Q values from local model
-        expected_q_values = self.q_current(states).gather(1, actions)
+        expected_q_values = scale*self.q_current(states).gather(1, actions)
 
         # Compute loss
-        loss = nn.MSELoss(expected_q_values, current_q_targets)
+        loss = self.loss_func(expected_q_values, current_q_targets)
         
         # Minimize the loss
-        self.optimizer.zero_grad()
+        self.optimiser.zero_grad()
         loss.backward()
-        self.optimizer.step()
+        self.optimiser.step()
 
         # Update target Q-Network
-        self.soft_update(self.q_current, self.q_target, self.tau)   
+        self.soft_update(self.q_current, self.q_target, self.tau)
         
         return
                   
@@ -244,7 +267,7 @@ class Agent():
 
         Parameters
         ----------
-        local_model: Q_network object
+        current_model: Q_network object
             Network that weights will be updated from
             
         target_model: Q_network object
