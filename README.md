@@ -2,8 +2,6 @@
 
 # Unity Banana Navigation
 
-![banana](images/banana-intro.gif)
-
 ## Project details
 
 This is my submission for the first project in the Udacity DRL nanodegree.
