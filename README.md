@@ -1,21 +1,23 @@
 # Project 1: Navigation - Hitesh Kumar
 
-### Introduction
+# Unity Banana Navigation
 
+![banana](images/banana-intro.gif)
 
-### Setup and Usage
+## Project details
 
+This is my submission for the first project in the Udacity DRL nanodegree.
 
-### Additions
-#### Experience replay
+#### Environment and state details
 
-#### Fixed Q targets
+The environment is provided to us in the form of a simulation run in Unity. It starts with the agent, able to see with a certain FOV angle, a room with yellow and blue bananas around it. The purpose is to train the agent to collect yellow bananas and avoid blue bananas. The environment is considered solved when the Agent can collect an average of 13 bananas over 100 consecutive episodes.
 
-#### Double DQN
+The state is a 37 dimensional array with information on the position of the agent and the Bananas around it. In any given state the agent has 4 possible actions (up, down, turn left and right)
 
-#### Prioritised experience replay
+## Getting started
 
-#### Dueling DQN
+The requirements are included in `requirements.txt`, so using `conda install requirements.txt` should be enough to install everything. Of course, you should also follow the instructions provided in the original repository by the Udacity team, and also make sure you have unity installed as per the instructions provided in the first tab in the navigation project lesson.
 
+## Instructions
 
-### Results
+Simply either run the cells in `solution.ipynb` or if you prefer run the script `solution.py`. If you really want to play around with the hyperparameters, you are free to do so in the files provided, but this is not reccommended.
