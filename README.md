@@ -2,6 +2,8 @@
 
 # Unity Banana Navigation
 
+Note: Code was adapted from working in the provided workspace to working on local, but wasnt tested on local. If in doubt, just run it in the workspace and it should be fine, provided you change the banaa path back to normal and add the python installation line (`!pip -q install ./python`)
+
 ## Project details
 
 This is my submission for the first project in the Udacity DRL nanodegree.
