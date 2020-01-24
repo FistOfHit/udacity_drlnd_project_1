@@ -15,7 +15,7 @@ The environment is provided to us in the form of a simulation run in Unity. It s
 The state is a 37 dimensional array with information on the position of the agent and the Bananas around it. In any given state the agent has 4 possible actions (up, down, turn left and right)
 
 ## Solution
-Episode: 0, Average Score: 0.00
+Episode: 0, Average Score: 0.00 \n
 Episode: 10, Average Score: 0.27
 Episode: 20, Average Score: 0.10
 Episode: 30, Average Score: 0.45
