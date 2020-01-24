@@ -36,7 +36,7 @@ class Agent():
     """
 
     def __init__(self, state_size, action_space_size,
-                 nn_hyperparams=[7e-4, 64, 4],
+                 nn_hyperparams=[5e-4, 64, 4],
                  rl_hyperparams=[int(1e5), 0.99, 1e-3]):
         """
         Initialize an Agent.
@@ -95,7 +95,6 @@ class Agent():
         # Initialise optimiser with defined learning rate and loss
         self.optimiser = optim.Adam(self.q_current.parameters(), 
                                     lr=self.learn_rate)
-        self.loss_func = nn.MSELoss()
 
         # Initialise experience replay buffer
         self.memory = exp_rep.Replay_buffer(action_space_size, self.buffer_size,
@@ -226,7 +225,7 @@ class Agent():
         self.q_target.eval()
         
         #--------------PRIORITISED ER----------#
-        scale = ((1/self.buffer_size)*(1/priorities))**0.4
+        scale = ((1/self.buffer_size)*(1/priorities))**0.5
         #--------------------------------------#
         
         #------------- DOUBLE DQN -------------#
@@ -234,8 +233,7 @@ class Agent():
         next_q_targets = self.q_current(next_states).detach().max(1)[0].unsqueeze(1)
         
         # Evaluate target Q with current policy
-        with torch.no_grad():
-            currently_evaluated_targets = self.q_target(next_states).gather(1, next_q_targets.to(dtype=torch.long))
+        currently_evaluated_targets = self.q_target(next_states).detach().max(1)[0].unsqueeze(1)
         
         # Compute Q targets for current states 
         current_q_targets = scale*(rewards + (gamma * currently_evaluated_targets * (1 - dones)))
@@ -248,7 +246,7 @@ class Agent():
         expected_q_values = scale*self.q_current(states).gather(1, actions)
 
         # Compute loss
-        loss = self.loss_func(expected_q_values, current_q_targets)
+        loss = torch.mean((expected_q_values - current_q_targets)**2)
         
         # Minimize the loss
         self.optimiser.zero_grad()
