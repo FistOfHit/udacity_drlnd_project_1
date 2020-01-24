@@ -95,8 +95,8 @@ def deep_q_learning(agent, env, brain_name,
         
         # If agent has reached a high enough score on average, save policy
         if running_average >= 13:
-            print('\nEnvironment solved in %d episodes! \n' +
-                  'Average Score: %.2f' % (episode-5, running_average))
+            print('\nEnvironment solved in ' + str(episode) + ' episodes! \n' +
+                  'Average Score: ' + str(running_average))
             torch.save(agent.q_current.state_dict(), 'checkpoint.pth')
             break
         
